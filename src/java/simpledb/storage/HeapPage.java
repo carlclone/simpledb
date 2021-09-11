@@ -73,8 +73,8 @@ public class HeapPage implements Page {
     */
     private int getNumTuples() {        
         // some code goes here
-        return 0;
-
+        return (BufferPool.getPageSize() * 8) /
+                (td.getSize() * 8 +1);
     }
 
     /**
@@ -84,7 +84,12 @@ public class HeapPage implements Page {
     private int getHeaderSize() {        
         
         // some code goes here
-        return 0;
+        int num = getNumTuples() / 8;
+        if (getNumTuples() % 8 >0) {
+            num++;
+        }
+        //refer : (getNumTuples() + 7) / 8;
+        return num;
                  
     }
     
@@ -118,7 +123,7 @@ public class HeapPage implements Page {
      */
     public HeapPageId getId() {
     // some code goes here
-    throw new UnsupportedOperationException("implement this");
+        return pid;
     }
 
     /**
@@ -288,7 +293,13 @@ public class HeapPage implements Page {
      */
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+        int num=0;
+        for (int i=0;i<numSlots;i++) {
+            if (!isSlotUsed(i)) {
+                num++;
+            }
+        }
+        return num;
     }
 
     /**
@@ -296,6 +307,11 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
+        if (i < numSlots) {
+            int byteIdx = i/8;
+            int bitIdx = i%8;
+            return (header[byteIdx] & (01 << bitIdx)) !=0;
+        }
         return false;
     }
 
@@ -307,13 +323,42 @@ public class HeapPage implements Page {
         // not necessary for lab1
     }
 
+    private class HeapPageTupleIterator implements Iterator {
+        private final Iterator<Tuple> iter;
+
+        public HeapPageTupleIterator() {
+            ArrayList<Tuple> tupleArrayList = new ArrayList<>(tuples.length);
+            for (int i=0;i< tuples.length;i++) {
+                if (isSlotUsed(i)) {
+                    tupleArrayList.add(tuples[i]);
+                }
+            }
+            iter = tupleArrayList.iterator();
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException("remove not supported");
+        }
+
+        @Override
+        public boolean hasNext() {
+            return iter.hasNext();
+        }
+
+        @Override
+        public Object next() {
+            return iter.next();
+        }
+    }
+
     /**
      * @return an iterator over all tuples on this page (calling remove on this iterator throws an UnsupportedOperationException)
      * (note that this iterator shouldn't return tuples in empty slots!)
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+        return new HeapPageTupleIterator();
     }
 
 }
