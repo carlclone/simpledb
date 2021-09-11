@@ -1,0 +1,20 @@
+ant test
+
+ant runtest -Dtest=TupleTest
+
+ant systemtest
+
+java -jar dist/simpledb.jar convert file.txt N
+
+
+
+java -jar dist/simpledb.jar convert file.txt N
+
+file.txt
+
+int1,int2,...,intN
+int1,int2,...,intN
+int1,int2,...,intN
+int1,int2,...,intN
+
+java -jar dist/simpledb.jar print file.dat N
