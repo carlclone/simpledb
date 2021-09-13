@@ -7,6 +7,7 @@ import simpledb.common.Permissions;
 import simpledb.transaction.TransactionAbortedException;
 import simpledb.transaction.TransactionId;
 
+import javax.xml.crypto.Data;
 import java.io.*;
 import java.util.*;
 
@@ -22,6 +23,8 @@ import java.util.*;
  */
 public class HeapFile implements DbFile {
 
+    private File file;
+    private TupleDesc td;
     /**
      * Constructs a heap file backed by the specified file.
      * 
@@ -31,6 +34,8 @@ public class HeapFile implements DbFile {
      */
     public HeapFile(File f, TupleDesc td) {
         // some code goes here
+        this.file = f;
+        this.td = td;
     }
 
     /**
@@ -40,7 +45,7 @@ public class HeapFile implements DbFile {
      */
     public File getFile() {
         // some code goes here
-        return null;
+        return file;
     }
 
     /**
@@ -54,7 +59,7 @@ public class HeapFile implements DbFile {
      */
     public int getId() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        return file.getAbsoluteFile().hashCode();
     }
 
     /**
@@ -64,13 +69,29 @@ public class HeapFile implements DbFile {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        return td;
     }
 
     // see DbFile.java for javadocs
     public Page readPage(PageId pid) {
         // some code goes here
-        return null;
+        int pgNo = pid.getPageNumber();
+        int tableId = pid.getTableId();
+        final int pgSize = Database.getBufferPool().getPageSize();
+        byte[] rawPageData = HeapPage.createEmptyPageData();
+        //open file
+        try {
+            FileInputStream in = new FileInputStream(file);
+            //find page pos
+            in.skip(pgNo * pgSize);
+            //read page
+            in.read(rawPageData);
+            return new HeapPage(new HeapPageId(tableId, pgNo), rawPageData);
+        } catch (FileNotFoundException e) {
+            throw new IllegalArgumentException("file not found");
+        } catch (IOException e) {
+            throw new IllegalArgumentException("page not found");
+        }
     }
 
     // see DbFile.java for javadocs
@@ -84,7 +105,9 @@ public class HeapFile implements DbFile {
      */
     public int numPages() {
         // some code goes here
-        return 0;
+        // fileSize / pgSize
+        int fileByteSize = (int) file.length();
+        return fileByteSize / Database.getBufferPool().getPageSize();
     }
 
     // see DbFile.java for javadocs
@@ -103,10 +126,78 @@ public class HeapFile implements DbFile {
         // not necessary for lab1
     }
 
+    private class HeapFileIterator implements DbFileIterator {
+        private Integer pgCursor;
+        private Iterator<Tuple> tupleIterator;
+        private final TransactionId tid;
+        private final int tableid;
+        private final int numPages;
+
+        public  HeapFileIterator(TransactionId tid) {
+            this.pgCursor = null;
+            this.tupleIterator = null;
+            this.tid = tid;
+            this.tableid = getId();
+            this.numPages = numPages();
+        }
+
+
+        @Override
+        public void open() throws DbException, TransactionAbortedException {
+            pgCursor=0;
+            tupleIterator = getTupleIterator(pgCursor);
+        }
+
+        private Iterator<Tuple> getTupleIterator(Integer pgCursor) throws TransactionAbortedException, DbException {
+            //get page from Bufferpool
+            HeapPageId heapPageId = new HeapPageId(tableid, pgCursor);
+                HeapPage page = (HeapPage) Database.getBufferPool().getPage(this.tid, heapPageId, Permissions.READ_ONLY);
+                //get iterator from page
+                return page.iterator();
+        }
+
+        @Override
+        public boolean hasNext() throws DbException, TransactionAbortedException {
+            if (pgCursor==null) {
+                return false;
+            }
+            // check if pgCursor+1 is large than numPages
+            if (pgCursor+1 > numPages) {
+                return false;
+            }
+            if (tupleIterator.hasNext()) {
+                return true;
+            }
+            pgCursor++;
+            tupleIterator = getTupleIterator(pgCursor);
+            return tupleIterator.hasNext();
+        }
+
+        @Override
+        public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
+            if (tupleIterator==null) {
+                throw new NoSuchElementException("iterator not open yet");
+            }
+            return tupleIterator.next();
+        }
+
+        @Override
+        public void rewind() throws DbException, TransactionAbortedException {
+            pgCursor=0;
+            tupleIterator = getTupleIterator(pgCursor);
+        }
+
+        @Override
+        public void close() {
+            pgCursor=null;
+            tupleIterator = null;
+        }
+    }
+
     // see DbFile.java for javadocs
     public DbFileIterator iterator(TransactionId tid) {
         // some code goes here
-        return null;
+        return new HeapFileIterator(tid);
     }
 
 }
