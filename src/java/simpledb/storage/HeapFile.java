@@ -161,13 +161,14 @@ public class HeapFile implements DbFile {
             if (pgCursor==null) {
                 return false;
             }
-            // check if pgCursor+1 is large than numPages
-            if (pgCursor+1 > numPages) {
-                return false;
-            }
             if (tupleIterator.hasNext()) {
                 return true;
             }
+            // check if pgCursor+1 is large than numPages
+            if (pgCursor+1 >= numPages) {
+                return false;
+            }
+
             pgCursor++;
             tupleIterator = getTupleIterator(pgCursor);
             return tupleIterator.hasNext();
