@@ -1,0 +1,8 @@
+Readings in Database Systems
+Available on Books24x7.com
+http://libraries.mit.edu/get/books24x7
+http://www.redbook.io/pdf/redbook-5th-edition.pdf
+
+Database Management Systems, 3rd ed. by Ramakrishnan and Gehrke
+https://github.com/pforpallav/school/blob/master/CPSC404/Ramakrishnan%20-%20Database%20Management%20Systems%203rd%20Edition.pdf
+
