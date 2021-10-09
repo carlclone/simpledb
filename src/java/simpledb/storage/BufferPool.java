@@ -37,6 +37,8 @@ public class BufferPool {
     private ConcurrentHashMap<PageId,Page> pageBuffer;
     private final int numPages;
 
+    //TODO;eviction 参考15-445 , Replacer , 通过 pageId 和 BufferPool 交互 , 实现一个 ClockReplacer
+
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -211,6 +213,7 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+        pageBuffer.remove(pid);
     }
 
     /**
@@ -220,6 +223,14 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        if (!pageBuffer.containsKey(pid)) {
+            return;
+        }
+        Page pg = pageBuffer.get(pid);
+        if (pg.isDirty() != null) {
+            DbFile file = Database.getCatalog().getDatabaseFile(pg.getId().getTableId());
+            file.writePage(pg);
+        }
     }
 
     /** Write all pages of the specified transaction to disk.
