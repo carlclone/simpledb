@@ -1,4 +1,4 @@
-package simpledb;
+package simpledb.extratest;
 import simpledb.common.Database;
 import simpledb.common.Type;
 import simpledb.execution.SeqScan;
@@ -9,10 +9,10 @@ import simpledb.systemtest.SimpleDbTestBase;
 import simpledb.transaction.TransactionId;
 
 import java.io.*;
-
+// lab1 extra test in lab1.md
 class Dbtest extends SimpleDbTestBase {
 
-    public static void main(String[] argv) {
+    public static void main(String[] argv1) {
 
         // construct a 3-column table schema
         Type types[] = new Type[]{ Type.INT_TYPE, Type.INT_TYPE, Type.INT_TYPE };
