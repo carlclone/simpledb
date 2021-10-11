@@ -6,6 +6,14 @@ import simpledb.execution.Predicate;
  */
 public class IntHistogram {
 
+    private int numBuckets;
+    private int min;
+    private int max;
+    private int width;
+    private int lastBucketWidth;
+    private int[] buckets;
+    private int numTuples;
+
     /**
      * Create a new IntHistogram.
      * 
@@ -24,6 +32,19 @@ public class IntHistogram {
      */
     public IntHistogram(int buckets, int min, int max) {
     	// some code goes here
+        this.numBuckets = buckets;
+        this.numTuples=0;
+        this.min=min;
+        this.max=max;
+
+        this.width = (max-min+1) / numBuckets;
+        if (this.width == 0) {
+            this.width=1;
+        } else if ( (max-min+1) % numBuckets !=0 ) {
+            this.numBuckets+=1;
+        }
+        this.lastBucketWidth = max - (min+ (numBuckets-1) * this.width ) +1;
+        this.buckets = new int[this.numBuckets];
     }
 
     /**
@@ -32,6 +53,9 @@ public class IntHistogram {
      */
     public void addValue(int v) {
     	// some code goes here
+        int pos = (v- this.min) / this.width;
+        buckets[pos] +=1;
+        numTuples +=1;
     }
 
     /**
@@ -45,9 +69,49 @@ public class IntHistogram {
      * @return Predicted selectivity of this particular operator and value
      */
     public double estimateSelectivity(Predicate.Op op, int v) {
-
     	// some code goes here
-        return -1.0;
+        // cmu15-445 Lecture 15 query planning & optimization II  18:49
+        if (op == Predicate.Op.EQUALS && (v < this.min || v > this.max)) return 0.0;
+        if (op == Predicate.Op.NOT_EQUALS && (v < this.min || v > this.max)) return 1.0;
+        if ((op == Predicate.Op.GREATER_THAN && v >= this.max) || (op == Predicate.Op.LESS_THAN && v <= this.min)) return 0.0;
+        if ((op == Predicate.Op.GREATER_THAN_OR_EQ && v > this.max) || (op == Predicate.Op.LESS_THAN_OR_EQ && v < this.min)) return 0.0;
+        if ((op == Predicate.Op.GREATER_THAN && v < this.min) || (op == Predicate.Op.LESS_THAN && v > this.max)) return 1.0;
+        if ((op == Predicate.Op.GREATER_THAN_OR_EQ && v <= this.min) || (op == Predicate.Op.LESS_THAN_OR_EQ && v >= this.max)) return 1.0;
+
+        // this.min <= v <= this.max
+        int pos = (v - this.min) / this.width;
+        int b_right = this.min + pos * this.width; // inclusive;
+        double numQualifiedTup = 0.0;
+        int curBucketWidth = this.width;
+        if (pos == numBuckets - 1) {
+            curBucketWidth = this.lastBucketWidth;
+        }
+
+        if (op == Predicate.Op.EQUALS) {
+            numQualifiedTup = (1.0 / curBucketWidth) * buckets[pos];
+        } else if (op == Predicate.Op.NOT_EQUALS) {
+            numQualifiedTup = numTuples - (1.0 / curBucketWidth) * buckets[pos];
+        } else if (op == Predicate.Op.GREATER_THAN || op == Predicate.Op.GREATER_THAN_OR_EQ) {
+            for (int i = pos+1; i < buckets.length; ++i) {
+                numQualifiedTup += buckets[i];
+            }
+            if (op == Predicate.Op.GREATER_THAN) {
+                numQualifiedTup += ((double) ( (b_right-v)) / curBucketWidth) * buckets[pos];
+            } else {
+                numQualifiedTup += ((double) ( (b_right-v) + 1) / curBucketWidth) * buckets[pos];
+            }
+        } else {
+            // less and lessequal
+            for (int i = 0; i < pos; ++i) {
+                numQualifiedTup += buckets[i];
+            }
+            if (op == Predicate.Op.LESS_THAN ) {
+                numQualifiedTup += ((double) (v-pos) / curBucketWidth) * buckets[pos];
+            } else {
+                numQualifiedTup += ((double) (v-pos + 1) / curBucketWidth) * buckets[pos];
+            }
+        }
+        return numQualifiedTup / numTuples;
     }
     
     /**
@@ -69,6 +133,6 @@ public class IntHistogram {
      */
     public String toString() {
         // some code goes here
-        return null;
+        return buckets.toString();
     }
 }
