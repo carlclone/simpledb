@@ -121,16 +121,21 @@ public class JoinOptimizer {
      */
     public double estimateJoinCost(LogicalJoinNode j, int card1, int card2,
             double cost1, double cost2) {
+        int cpuCostFactor = 1;
         if (j instanceof LogicalSubplanJoinNode) {
             // A LogicalSubplanJoinNode represents a subquery.
             // You do not need to implement proper support for these for Lab 3.
-            return card1 + cost1 + cost2;
+            return  card1 * cpuCostFactor +      //
+                    cost1 +
+                    cost2;
         } else {
             // Insert your code here.
             // HINT: You may need to use the variable "j" if you implemented
             // a join algorithm that's more complicated than a basic
             // nested-loops join.
-            return cost1 + card1 * cost2 + card1 * card2;
+            return  cost1 +
+                    card1 * cost2 +
+                    card1 * card2 * cpuCostFactor;
         }
     }
 
