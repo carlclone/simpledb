@@ -2,3 +2,8 @@ Parser.java
 TableStats.java
 JoinOptimizer.java
 LogicalPlan.java
+
+
+LockTest
+TransactionTest
+AbortEvictionTest

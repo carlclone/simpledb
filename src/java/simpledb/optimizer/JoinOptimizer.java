@@ -121,16 +121,21 @@ public class JoinOptimizer {
      */
     public double estimateJoinCost(LogicalJoinNode j, int card1, int card2,
             double cost1, double cost2) {
+        int cpuCostFactor = 1;
         if (j instanceof LogicalSubplanJoinNode) {
             // A LogicalSubplanJoinNode represents a subquery.
             // You do not need to implement proper support for these for Lab 3.
-            return card1 + cost1 + cost2;
+            return  card1 * cpuCostFactor +      //
+                    cost1 +
+                    cost2;
         } else {
             // Insert your code here.
             // HINT: You may need to use the variable "j" if you implemented
             // a join algorithm that's more complicated than a basic
             // nested-loops join.
-            return -1.0;
+            return  cost1 +
+                    card1 * cost2 +
+                    card1 * card2 * cpuCostFactor;
         }
     }
 
@@ -176,6 +181,28 @@ public class JoinOptimizer {
                                                    Map<String, Integer> tableAliasToId) {
         int card = 1;
         // some code goes here
+        if (joinOp == Predicate.Op.EQUALS && t1pkey && t2pkey) {
+            card = Math.min(card1, card2);
+        } else if (joinOp == Predicate.Op.EQUALS && t1pkey) {
+            card = card2;
+        } else if (joinOp == Predicate.Op.EQUALS && t2pkey) {
+            card = card1;
+        } else if (joinOp == Predicate.Op.EQUALS && !t1pkey && !t2pkey) {
+            // no primary key table, heristic
+            card = Math.max(card1, card2);
+        } else if (joinOp == Predicate.Op.NOT_EQUALS && t1pkey && t2pkey) {
+            card = card1 * card2 - (Math.min(card1, card2));
+        } else if (joinOp == Predicate.Op.NOT_EQUALS && t1pkey) {
+            card = card1 * card2 - card2;
+        } else if (joinOp == Predicate.Op.NOT_EQUALS && t2pkey) {
+            card = card1 * card2 - card1;
+        } else if (joinOp == Predicate.Op.NOT_EQUALS && !t1pkey && !t2pkey) {
+            card = (card1 * card2) - Math.max(card1, card2);
+        } else {
+            // range search heroistic
+            card = card1 * card2 / 3;
+        }
+
         return card <= 0 ? 1 : card;
     }
 
@@ -238,7 +265,27 @@ public class JoinOptimizer {
 
         // some code goes here
         //Replace the following
-        return joins;
+        int numJoinNodes = this.joins.size();
+        PlanCache memo = new PlanCache();
+        for (int i = 1; i <= numJoinNodes; i ++) {
+            Set<Set<LogicalJoinNode>> setOfSubset = this.enumerateSubsets(this.joins, i);
+            for (Set<LogicalJoinNode> s : setOfSubset) {
+                // this.computeCostAndCardOfSubplan(stats, filterSelectivities, toRemove, sub, best, memo);
+                Double bestCostSofar = Double.MAX_VALUE;
+                CostCard bestPlan = new CostCard();
+                for (LogicalJoinNode toRemove : s) {
+                    CostCard plan = this.computeCostAndCardOfSubplan(stats, filterSelectivities, toRemove, s, bestCostSofar, memo);
+                    if (plan != null) {
+                        bestCostSofar = plan.cost;
+                        bestPlan = plan;
+                    }
+                }
+                // if (bestPlan.plan.size() == 0) throw new ParsingException("error: no plan are found");
+                memo.addPlan(s, bestPlan.cost, bestPlan.card, bestPlan.plan);
+            }
+        }
+        Set<LogicalJoinNode> wholeSet = this.enumerateSubsets(this.joins, numJoinNodes).iterator().next();
+        return memo.getOrder(wholeSet);
     }
 
     // ===================== Private Methods =================================
